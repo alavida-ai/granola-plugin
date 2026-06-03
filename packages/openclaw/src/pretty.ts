@@ -100,14 +100,31 @@ interface PaginationFooter {
 
 function renderNoteList(notes: NoteHeadline[], page: PaginationFooter): string {
   if (notes.length === 0) return '(no notes)';
-  const lines = notes.map((n) => {
-    const id = n.id ?? '?';
-    const title = n.title?.trim() || '(untitled)';
-    const owner = n.ownerEmail ?? '?';
-    const created = n.createdAt ?? '';
-    return `  ${id}  ${created}  ${title}  <${owner}>`;
-  });
-  lines.unshift(`${notes.length} note${notes.length === 1 ? '' : 's'}:`);
+
+  // Project to scalar rows, then compute per-column widths so the table aligns
+  // and the header lines up with the data. Headers help the agent reason about
+  // which token is which field; agents (and humans) regularly mistake the title
+  // for the date when there's no label.
+  const rows = notes.map((n) => ({
+    id: n.id ?? '?',
+    created: n.createdAt ?? '',
+    title: n.title?.trim() || '(untitled)',
+    owner: n.ownerEmail ?? '?',
+  }));
+  const cols: Array<keyof (typeof rows)[number]> = ['id', 'created', 'title', 'owner'];
+  const headers = { id: 'id', created: 'created_at', title: 'title', owner: 'owner_email' };
+  const widths = Object.fromEntries(
+    cols.map((c) => [c, Math.max(headers[c].length, ...rows.map((r) => r[c].length))]),
+  ) as Record<(typeof cols)[number], number>;
+  const fmtRow = (r: Record<(typeof cols)[number], string>) =>
+    `  ${cols.map((c) => r[c].padEnd(widths[c])).join('  ')}`;
+
+  const lines = [
+    `${notes.length} note${notes.length === 1 ? '' : 's'}:`,
+    fmtRow(headers),
+    `  ${cols.map((c) => '─'.repeat(widths[c])).join('  ')}`,
+    ...rows.map(fmtRow),
+  ];
   if (page.hasMore && page.cursor) {
     lines.push('');
     lines.push(`(more available — pass pageToken="${page.cursor}" to continue)`);
@@ -156,11 +173,26 @@ function renderSingleNote(n: NoteDetail): string {
 
 function renderFolderList(folders: FolderShape[], page: PaginationFooter): string {
   if (folders.length === 0) return '(no folders)';
-  const lines = folders.map((f) => {
-    const parent = f.parent_folder_id ? `  (parent: ${f.parent_folder_id})` : '';
-    return `  ${f.id ?? '?'}  ${f.name ?? '(unnamed)'}${parent}`;
-  });
-  lines.unshift(`${folders.length} folder${folders.length === 1 ? '' : 's'}:`);
+
+  const rows = folders.map((f) => ({
+    id: f.id ?? '?',
+    name: f.name ?? '(unnamed)',
+    parent: f.parent_folder_id ?? '',
+  }));
+  const cols: Array<keyof (typeof rows)[number]> = ['id', 'name', 'parent'];
+  const headers = { id: 'id', name: 'name', parent: 'parent_folder_id' };
+  const widths = Object.fromEntries(
+    cols.map((c) => [c, Math.max(headers[c].length, ...rows.map((r) => r[c].length))]),
+  ) as Record<(typeof cols)[number], number>;
+  const fmtRow = (r: Record<(typeof cols)[number], string>) =>
+    `  ${cols.map((c) => r[c].padEnd(widths[c])).join('  ')}`;
+
+  const lines = [
+    `${folders.length} folder${folders.length === 1 ? '' : 's'}:`,
+    fmtRow(headers),
+    `  ${cols.map((c) => '─'.repeat(widths[c])).join('  ')}`,
+    ...rows.map(fmtRow),
+  ];
   if (page.hasMore && page.cursor) {
     lines.push('');
     lines.push(`(more available — pass pageToken="${page.cursor}" to continue)`);
