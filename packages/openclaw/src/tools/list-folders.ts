@@ -1,5 +1,5 @@
 /**
- * `list_folders` — folders the user has organised notes into.
+ * `granola_list_folders` — folders the user has organised notes into.
  *
  * Each folder has `id`, `name`, optional `parent_folder_id` (nested folders).
  * Read-only.
@@ -11,7 +11,7 @@ import { defineTool } from '../register.js';
 import { LimitSchema, PageTokenSchema } from '../shared-schemas.js';
 
 const listFolders = defineTool({
-  name: 'list_folders',
+  name: 'granola_list_folders',
   description:
     'List folders the user has organised notes into. Each folder has id, name, and optional parent_folder_id (nested folders). Read-only.',
   parameters: Type.Object({
