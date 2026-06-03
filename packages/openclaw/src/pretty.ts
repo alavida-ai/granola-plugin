@@ -20,9 +20,9 @@ export function renderPretty(payload: unknown): string {
   if (isObject(payload)) {
     const p = payload as Record<string, unknown>;
 
-    // granola_list_notes — {notes, nextCursor, hasMore}
+    // granola_list_notes — {notes: NoteHeadline[], nextCursor, hasMore}
     if (Array.isArray(p.notes)) {
-      return renderNoteList(p.notes as NoteShape[], {
+      return renderNoteList(p.notes as NoteHeadline[], {
         cursor: typeof p.nextCursor === 'string' ? p.nextCursor : null,
         hasMore: p.hasMore === true,
       });
@@ -34,9 +34,9 @@ export function renderPretty(payload: unknown): string {
         hasMore: p.hasMore === true,
       });
     }
-    // granola_read_note — single note (has `id` + `summary_markdown` or summary_text)
+    // granola_read_note — single note (raw wire shape: id + summary_markdown/text)
     if (typeof p.id === 'string' && ('summary_markdown' in p || 'summary_text' in p || 'title' in p)) {
-      return renderSingleNote(p as NoteShape);
+      return renderSingleNote(p as NoteDetail);
     }
   }
 
@@ -51,7 +51,31 @@ export function renderPretty(payload: unknown): string {
 
 // ─── renderers ───────────────────────────────────────────────────────────────
 
-interface NoteShape {
+/**
+ * Two distinct note shapes flow through this renderer:
+ *
+ *   - `granola_list_notes` returns shaped headlines (flat camelCase fields).
+ *     See `tools/list-notes.ts` — the tool maps the wire response to this
+ *     shape before returning, so the agent gets a smaller, easier-to-scan
+ *     payload.
+ *   - `granola_read_note` returns the raw wire note (nested `owner`,
+ *     snake_case `created_at`, etc.) verbatim from `client.notes.get()`.
+ *
+ * They need different renderers because the field names differ. Keeping the
+ * interfaces separate prevents the "every note shows <?>" bug we hit in
+ * production — the previous shared interface read `n.owner?.email` against
+ * the flat headline shape, where that field doesn't exist.
+ */
+interface NoteHeadline {
+  id?: string;
+  title?: string | null;
+  ownerName?: string | null;
+  ownerEmail?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+interface NoteDetail {
   id?: string;
   title?: string | null;
   owner?: { name?: string | null; email?: string | null };
@@ -74,13 +98,13 @@ interface PaginationFooter {
   hasMore: boolean;
 }
 
-function renderNoteList(notes: NoteShape[], page: PaginationFooter): string {
+function renderNoteList(notes: NoteHeadline[], page: PaginationFooter): string {
   if (notes.length === 0) return '(no notes)';
   const lines = notes.map((n) => {
     const id = n.id ?? '?';
     const title = n.title?.trim() || '(untitled)';
-    const owner = n.owner?.email ?? '?';
-    const created = n.created_at ?? '';
+    const owner = n.ownerEmail ?? '?';
+    const created = n.createdAt ?? '';
     return `  ${id}  ${created}  ${title}  <${owner}>`;
   });
   lines.unshift(`${notes.length} note${notes.length === 1 ? '' : 's'}:`);
@@ -91,7 +115,7 @@ function renderNoteList(notes: NoteShape[], page: PaginationFooter): string {
   return lines.join('\n');
 }
 
-function renderSingleNote(n: NoteShape): string {
+function renderSingleNote(n: NoteDetail): string {
   const title = n.title?.trim() || '(untitled)';
   const lines: string[] = [
     title,
