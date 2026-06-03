@@ -1,5 +1,5 @@
 /**
- * `read_note` — fetch a single note by id with title, owner, AI summary, and
+ * `granola_read_note` — fetch a single note by id with title, owner, AI summary, and
  * optionally the full transcript. Read-only.
  */
 import { Type } from 'typebox';
@@ -8,12 +8,12 @@ import { getClient } from '../client.js';
 import { defineTool } from '../register.js';
 
 const readNote = defineTool({
-  name: 'read_note',
+  name: 'granola_read_note',
   description:
-    'Fetch a single meeting note: title, owner, AI summary (markdown), and optionally the full transcript. Use after list_notes. Read-only.',
+    'Fetch a single meeting note: title, owner, AI summary (markdown), and optionally the full transcript. Use after granola_list_notes. Read-only.',
   parameters: Type.Object({
     noteId: Type.String({
-      description: 'Note id (pattern: not_<14 chars>). Get one from list_notes.',
+      description: 'Note id (pattern: not_<14 chars>). Get one from granola_list_notes.',
     }),
     includeTranscript: Type.Optional(
       Type.Boolean({

@@ -4,7 +4,7 @@
   "description": "Read meeting notes, AI summaries, transcripts, and folders from Granola.ai. Read-only — Granola's public API has no write endpoints.",
   "skills": ["./skills"],
   "contracts": {
-    "tools": ["list_notes", "read_note", "list_folders"]
+    "tools": ["granola_list_notes", "granola_read_note", "granola_list_folders"]
   },
   "activation": { "onStartup": true },
   "configSchema": {

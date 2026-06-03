@@ -1,7 +1,7 @@
 /**
- * `list_notes` — meeting notes, newest first. Read-only.
+ * `granola_list_notes` — meeting notes, newest first. Read-only.
  *
- * Returns compact headlines (id, title, owner, created_at). Use `read_note`
+ * Returns compact headlines (id, title, owner, created_at). Use `granola_read_note`
  * for the full body or transcript.
  */
 import { Type } from 'typebox';
@@ -20,9 +20,9 @@ interface NoteHeadline {
 }
 
 const listNotes = defineTool({
-  name: 'list_notes',
+  name: 'granola_list_notes',
   description:
-    'List meeting notes, newest first. Returns headlines (id, title, owner, created_at). Use read_note for the full summary or transcript. Read-only.',
+    'List meeting notes, newest first. Returns headlines (id, title, owner, created_at). Use granola_read_note for the full summary or transcript. Read-only.',
   parameters: Type.Object({
     limit: LimitSchema,
     pageToken: PageTokenSchema,

@@ -20,21 +20,21 @@ export function renderPretty(payload: unknown): string {
   if (isObject(payload)) {
     const p = payload as Record<string, unknown>;
 
-    // list_notes — {notes, nextCursor, hasMore}
+    // granola_list_notes — {notes, nextCursor, hasMore}
     if (Array.isArray(p.notes)) {
       return renderNoteList(p.notes as NoteShape[], {
         cursor: typeof p.nextCursor === 'string' ? p.nextCursor : null,
         hasMore: p.hasMore === true,
       });
     }
-    // list_folders — {folders, nextCursor, hasMore}
+    // granola_list_folders — {folders, nextCursor, hasMore}
     if (Array.isArray(p.folders)) {
       return renderFolderList(p.folders as FolderShape[], {
         cursor: typeof p.nextCursor === 'string' ? p.nextCursor : null,
         hasMore: p.hasMore === true,
       });
     }
-    // read_note — single note (has `id` + `summary_markdown` or summary_text)
+    // granola_read_note — single note (has `id` + `summary_markdown` or summary_text)
     if (typeof p.id === 'string' && ('summary_markdown' in p || 'summary_text' in p || 'title' in p)) {
       return renderSingleNote(p as NoteShape);
     }
