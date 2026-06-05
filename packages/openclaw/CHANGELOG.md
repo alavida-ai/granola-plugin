@@ -1,5 +1,11 @@
 # @alavida-ai/granola-plugin-openclaw
 
+## 0.5.1
+
+### Patch Changes
+
+- Fix typo and wording in the `granola_list_notes` `folderId` parameter description ("Filer" → "Filter"). User-facing schema text the agent reads when deciding how to filter notes.
+
 ## 0.5.0
 
 ### Minor Changes

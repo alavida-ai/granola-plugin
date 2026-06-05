@@ -27,7 +27,7 @@ const listNotes = defineTool({
     limit: LimitSchema,
     pageToken: PageTokenSchema,
     folderId: Type.Optional(
-      Type.String({ description: 'Filer notes by parent folder ID, list folder endpoints to discover folder IDs'}),
+      Type.String({ description: 'Filter notes by parent folder ID; list folder endpoints to discover folder IDs.'}),
     ),
     createdAfter: Type.Optional(
       Type.String({ description: 'ISO-8601 — only notes created on/after this timestamp.' }),
