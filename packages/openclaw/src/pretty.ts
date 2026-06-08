@@ -20,9 +20,9 @@ export function renderPretty(payload: unknown): string {
   if (isObject(payload)) {
     const p = payload as Record<string, unknown>;
 
-    // granola_list_notes — {notes, nextCursor, hasMore}
+    // granola_list_notes — {notes: NoteHeadline[], nextCursor, hasMore}
     if (Array.isArray(p.notes)) {
-      return renderNoteList(p.notes as NoteShape[], {
+      return renderNoteList(p.notes as NoteHeadline[], {
         cursor: typeof p.nextCursor === 'string' ? p.nextCursor : null,
         hasMore: p.hasMore === true,
       });
@@ -34,9 +34,9 @@ export function renderPretty(payload: unknown): string {
         hasMore: p.hasMore === true,
       });
     }
-    // granola_read_note — single note (has `id` + `summary_markdown` or summary_text)
+    // granola_read_note — single note (raw wire shape: id + summary_markdown/text)
     if (typeof p.id === 'string' && ('summary_markdown' in p || 'summary_text' in p || 'title' in p)) {
-      return renderSingleNote(p as NoteShape);
+      return renderSingleNote(p as NoteDetail);
     }
   }
 
@@ -51,7 +51,31 @@ export function renderPretty(payload: unknown): string {
 
 // ─── renderers ───────────────────────────────────────────────────────────────
 
-interface NoteShape {
+/**
+ * Two distinct note shapes flow through this renderer:
+ *
+ *   - `granola_list_notes` returns shaped headlines (flat camelCase fields).
+ *     See `tools/list-notes.ts` — the tool maps the wire response to this
+ *     shape before returning, so the agent gets a smaller, easier-to-scan
+ *     payload.
+ *   - `granola_read_note` returns the raw wire note (nested `owner`,
+ *     snake_case `created_at`, etc.) verbatim from `client.notes.get()`.
+ *
+ * They need different renderers because the field names differ. Keeping the
+ * interfaces separate prevents the "every note shows <?>" bug we hit in
+ * production — the previous shared interface read `n.owner?.email` against
+ * the flat headline shape, where that field doesn't exist.
+ */
+interface NoteHeadline {
+  id?: string;
+  title?: string | null;
+  ownerName?: string | null;
+  ownerEmail?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+interface NoteDetail {
   id?: string;
   title?: string | null;
   owner?: { name?: string | null; email?: string | null };
@@ -74,16 +98,33 @@ interface PaginationFooter {
   hasMore: boolean;
 }
 
-function renderNoteList(notes: NoteShape[], page: PaginationFooter): string {
+function renderNoteList(notes: NoteHeadline[], page: PaginationFooter): string {
   if (notes.length === 0) return '(no notes)';
-  const lines = notes.map((n) => {
-    const id = n.id ?? '?';
-    const title = n.title?.trim() || '(untitled)';
-    const owner = n.owner?.email ?? '?';
-    const created = n.created_at ?? '';
-    return `  ${id}  ${created}  ${title}  <${owner}>`;
-  });
-  lines.unshift(`${notes.length} note${notes.length === 1 ? '' : 's'}:`);
+
+  // Project to scalar rows, then compute per-column widths so the table aligns
+  // and the header lines up with the data. Headers help the agent reason about
+  // which token is which field; agents (and humans) regularly mistake the title
+  // for the date when there's no label.
+  const rows = notes.map((n) => ({
+    id: n.id ?? '?',
+    created: n.createdAt ?? '',
+    title: n.title?.trim() || '(untitled)',
+    owner: n.ownerEmail ?? '?',
+  }));
+  const cols: Array<keyof (typeof rows)[number]> = ['id', 'created', 'title', 'owner'];
+  const headers = { id: 'id', created: 'created_at', title: 'title', owner: 'owner_email' };
+  const widths = Object.fromEntries(
+    cols.map((c) => [c, Math.max(headers[c].length, ...rows.map((r) => r[c].length))]),
+  ) as Record<(typeof cols)[number], number>;
+  const fmtRow = (r: Record<(typeof cols)[number], string>) =>
+    `  ${cols.map((c) => r[c].padEnd(widths[c])).join('  ')}`;
+
+  const lines = [
+    `${notes.length} note${notes.length === 1 ? '' : 's'}:`,
+    fmtRow(headers),
+    `  ${cols.map((c) => '─'.repeat(widths[c])).join('  ')}`,
+    ...rows.map(fmtRow),
+  ];
   if (page.hasMore && page.cursor) {
     lines.push('');
     lines.push(`(more available — pass pageToken="${page.cursor}" to continue)`);
@@ -91,7 +132,7 @@ function renderNoteList(notes: NoteShape[], page: PaginationFooter): string {
   return lines.join('\n');
 }
 
-function renderSingleNote(n: NoteShape): string {
+function renderSingleNote(n: NoteDetail): string {
   const title = n.title?.trim() || '(untitled)';
   const lines: string[] = [
     title,
@@ -132,11 +173,26 @@ function renderSingleNote(n: NoteShape): string {
 
 function renderFolderList(folders: FolderShape[], page: PaginationFooter): string {
   if (folders.length === 0) return '(no folders)';
-  const lines = folders.map((f) => {
-    const parent = f.parent_folder_id ? `  (parent: ${f.parent_folder_id})` : '';
-    return `  ${f.id ?? '?'}  ${f.name ?? '(unnamed)'}${parent}`;
-  });
-  lines.unshift(`${folders.length} folder${folders.length === 1 ? '' : 's'}:`);
+
+  const rows = folders.map((f) => ({
+    id: f.id ?? '?',
+    name: f.name ?? '(unnamed)',
+    parent: f.parent_folder_id ?? '',
+  }));
+  const cols: Array<keyof (typeof rows)[number]> = ['id', 'name', 'parent'];
+  const headers = { id: 'id', name: 'name', parent: 'parent_folder_id' };
+  const widths = Object.fromEntries(
+    cols.map((c) => [c, Math.max(headers[c].length, ...rows.map((r) => r[c].length))]),
+  ) as Record<(typeof cols)[number], number>;
+  const fmtRow = (r: Record<(typeof cols)[number], string>) =>
+    `  ${cols.map((c) => r[c].padEnd(widths[c])).join('  ')}`;
+
+  const lines = [
+    `${folders.length} folder${folders.length === 1 ? '' : 's'}:`,
+    fmtRow(headers),
+    `  ${cols.map((c) => '─'.repeat(widths[c])).join('  ')}`,
+    ...rows.map(fmtRow),
+  ];
   if (page.hasMore && page.cursor) {
     lines.push('');
     lines.push(`(more available — pass pageToken="${page.cursor}" to continue)`);
